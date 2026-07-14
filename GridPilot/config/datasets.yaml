@@ -1,0 +1,37 @@
+version: "1.0.0"
+datasets:
+  nwi_wetlands:
+    id: "nwi_wetlands"
+    name: "National Wetlands Inventory"
+    official_source_url: "https://www.fws.gov/wetlands/Downloads/State-Downloads/TX_Wetlands.zip"
+    mirror_urls:
+      - "https://raw.githubusercontent.com/rohitsingh-01/gridpilot-ai/main/sample-data/nwi_test.zip"
+    preferred_download_order: ["mirror1", "official"]
+    license: "PD-USGOV"
+    version: "2024"
+    sha256: "ea2bf88a4497e68b3f114639cf012019972ae81a5e12f00a4005615d028b123a"  # Will be dynamically updated or mocked in tests
+    expected_size_bytes: 4194304
+    format: "zip_shapefile"
+    crs: "EPSG:4269"
+    simplify:
+      enabled: false
+      tolerance: 0.0001
+      algorithm: "Douglas-Peucker"
+
+  critical_habitat:
+    id: "critical_habitat"
+    name: "USFWS Critical Habitat"
+    official_source_url: "https://ecos.fws.gov/ecp/report/table/critical-habitat.html"
+    mirror_urls:
+      - "https://raw.githubusercontent.com/rohitsingh-01/gridpilot-ai/main/sample-data/habitat_test.geojson"
+    preferred_download_order: ["mirror1", "official"]
+    license: "PD-USGOV"
+    version: "2023"
+    sha256: "ca35a072b7808b4030825f77864f8992b2d0752fdfdf34ca495991b7852a123a"
+    expected_size_bytes: 2097152
+    format: "geojson"
+    crs: "EPSG:4326"
+    simplify:
+      enabled: false
+      tolerance: 0.0001
+      algorithm: "Douglas-Peucker"
