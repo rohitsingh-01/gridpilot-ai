@@ -1,0 +1,20 @@
+version: "1.0.0"
+workflow:
+  timeout_seconds: 1200
+  max_parallel_tasks: 4
+  retry_policy:
+    attempts: 3
+    backoff_seconds: 2.0
+  tasks:
+    site_assessment:
+      agent: "environmental"
+      timeout_seconds: 300
+      dependencies: []
+    grid_simulation:
+      agent: "grid"
+      timeout_seconds: 400
+      dependencies: ["site_assessment"]
+    costing:
+      agent: "economic"
+      timeout_seconds: 300
+      dependencies: ["grid_simulation"]

@@ -29,4 +29,8 @@ seed-semantic:
 seed-semantic-mock:
 	python -m services.semantic.seed.index_corpus --mock
 
+test-workflow:
+	python -m pytest services/workflow/tests/
+
+
 
