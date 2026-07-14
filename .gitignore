@@ -1,0 +1,4 @@
+# Pytest and coverage artifacts
+.coverage
+.pytest_cache/
+htmlcov/
