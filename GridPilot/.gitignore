@@ -1,0 +1,26 @@
+# Environment variables
+.env
+.env.local
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints
+.pytest_cache/
+.venv/
+venv/
+ENV/
+env/
+
+# Node/Frontend artifacts
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db
