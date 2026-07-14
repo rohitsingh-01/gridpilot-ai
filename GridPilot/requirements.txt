@@ -22,6 +22,7 @@ pyproj>=3.6.0
 pyshp>=2.3.1
 pypsa>=0.26.0
 networkx>=3.2.0
+Pillow>=10.0.0
 
 # Alibaba Cloud & AI API
 oss2>=2.18.4

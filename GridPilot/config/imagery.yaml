@@ -1,0 +1,21 @@
+version: "1.0.0"
+aoi_sources:
+  demo_project:
+    type: "geojson"
+    path: "data/processed/nwi_wetlands.geojson"
+  ercot_bbox:
+    type: "bbox"
+    coords: [-103.5, 30.5, -101.5, 31.8]
+
+pipeline:
+  provider: "sentinel2"
+  cloud_cover_threshold: 0.15
+  search_days_limit: 90
+  bands: ["red", "green", "blue"]
+  output_resolution_meters: 10.0
+  local_cache_path: "data/imagery"
+  max_cache_size_gb: 20.0
+  retry_policy:
+    attempts: 4
+    initial_backoff_seconds: 3.0
+    exponential_factor: 2.0
