@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Sagebrush Solar + Storage",
+    "technology": "solar_plus_storage",
+    "capacity_mw": 50.0,
+    "storage_capacity_mw": 20.0,
+    "poi_node_key": "BUS_1",
+    "aoi_geojson": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [-102.61, 30.89],
+          [-102.59, 30.89],
+          [-102.59, 30.91],
+          [-102.61, 30.91],
+          [-102.61, 30.89]
+        ]
+      ]
+    },
+    "submitted_by": "priya@gridpilot.dev",
+    "status": "submitted"
+  }
+]

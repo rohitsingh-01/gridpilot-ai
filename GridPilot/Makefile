@@ -16,3 +16,10 @@ test-infra:
 	docker compose exec redis redis-cli ping
 	@echo "=== Verifying ChromaDB ==="
 	docker compose exec chromadb python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/api/v1/heartbeat').read().decode())"
+
+seed:
+	python -m services.db.seed.seed
+
+seed-dry-run:
+	python -m services.db.seed.seed --dry-run
+

@@ -1,0 +1,173 @@
+{
+  "nodes": [
+    {
+      "node_key": "BUS_1",
+      "node_type": "substation",
+      "voltage_kv": 138.0,
+      "latitude": 30.900000,
+      "longitude": -102.600000,
+      "thermal_limit_mva": 300.0
+    },
+    {
+      "node_key": "BUS_2",
+      "node_type": "load_bus",
+      "voltage_kv": 138.0,
+      "latitude": 30.950000,
+      "longitude": -102.550000,
+      "thermal_limit_mva": 250.0
+    },
+    {
+      "node_key": "BUS_3",
+      "node_type": "generator_bus",
+      "voltage_kv": 138.0,
+      "latitude": 31.000000,
+      "longitude": -102.500000,
+      "thermal_limit_mva": 250.0
+    },
+    {
+      "node_key": "BUS_4",
+      "node_type": "load_bus",
+      "voltage_kv": 138.0,
+      "latitude": 31.050000,
+      "longitude": -102.450000,
+      "thermal_limit_mva": 250.0
+    },
+    {
+      "node_key": "BUS_5",
+      "node_type": "generator_bus",
+      "voltage_kv": 34.5,
+      "latitude": 31.100000,
+      "longitude": -102.400000,
+      "thermal_limit_mva": 100.0
+    },
+    {
+      "node_key": "BUS_6",
+      "node_type": "load_bus",
+      "voltage_kv": 138.0,
+      "latitude": 31.050000,
+      "longitude": -102.350000,
+      "thermal_limit_mva": 250.0
+    },
+    {
+      "node_key": "BUS_7",
+      "node_type": "substation",
+      "voltage_kv": 138.0,
+      "latitude": 31.000000,
+      "longitude": -102.300000,
+      "thermal_limit_mva": 300.0
+    },
+    {
+      "node_key": "BUS_8",
+      "node_type": "load_bus",
+      "voltage_kv": 138.0,
+      "latitude": 30.950000,
+      "longitude": -102.350000,
+      "thermal_limit_mva": 250.0
+    },
+    {
+      "node_key": "BUS_9",
+      "node_type": "substation",
+      "voltage_kv": 138.0,
+      "latitude": 30.900000,
+      "longitude": -102.450000,
+      "thermal_limit_mva": 300.0
+    }
+  ],
+  "edges": [
+    {
+      "from_node": "BUS_1",
+      "to_node": "BUS_2",
+      "edge_type": "line",
+      "reactance_pu": 0.04500,
+      "thermal_limit_mva": 250.0,
+      "length_miles": 10.5
+    },
+    {
+      "from_node": "BUS_2",
+      "to_node": "BUS_3",
+      "edge_type": "line",
+      "reactance_pu": 0.04200,
+      "thermal_limit_mva": 250.0,
+      "length_miles": 9.8
+    },
+    {
+      "from_node": "BUS_3",
+      "to_node": "BUS_4",
+      "edge_type": "line",
+      "reactance_pu": 0.04800,
+      "thermal_limit_mva": 250.0,
+      "length_miles": 11.2
+    },
+    {
+      "from_node": "BUS_4",
+      "to_node": "BUS_6",
+      "edge_type": "line",
+      "reactance_pu": 0.05200,
+      "thermal_limit_mva": 250.0,
+      "length_miles": 12.1
+    },
+    {
+      "from_node": "BUS_6",
+      "to_node": "BUS_7",
+      "edge_type": "line",
+      "reactance_pu": 0.04000,
+      "thermal_limit_mva": 250.0,
+      "length_miles": 9.3
+    },
+    {
+      "from_node": "BUS_7",
+      "to_node": "BUS_8",
+      "edge_type": "line",
+      "reactance_pu": 0.04400,
+      "thermal_limit_mva": 250.0,
+      "length_miles": 10.2
+    },
+    {
+      "from_node": "BUS_8",
+      "to_node": "BUS_9",
+      "edge_type": "line",
+      "reactance_pu": 0.04600,
+      "thermal_limit_mva": 250.0,
+      "length_miles": 10.7
+    },
+    {
+      "from_node": "BUS_9",
+      "to_node": "BUS_1",
+      "edge_type": "line",
+      "reactance_pu": 0.05000,
+      "thermal_limit_mva": 250.0,
+      "length_miles": 11.5
+    },
+    {
+      "from_node": "BUS_2",
+      "to_node": "BUS_9",
+      "edge_type": "line",
+      "reactance_pu": 0.05500,
+      "thermal_limit_mva": 250.0,
+      "length_miles": 12.8
+    },
+    {
+      "from_node": "BUS_3",
+      "to_node": "BUS_8",
+      "edge_type": "line",
+      "reactance_pu": 0.05800,
+      "thermal_limit_mva": 250.0,
+      "length_miles": 13.5
+    },
+    {
+      "from_node": "BUS_4",
+      "to_node": "BUS_7",
+      "edge_type": "line",
+      "reactance_pu": 0.05100,
+      "thermal_limit_mva": 250.0,
+      "length_miles": 11.9
+    },
+    {
+      "from_node": "BUS_5",
+      "to_node": "BUS_4",
+      "edge_type": "transformer",
+      "reactance_pu": 0.08000,
+      "thermal_limit_mva": 100.0
+    }
+  ]
+}
