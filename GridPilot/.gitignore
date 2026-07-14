@@ -28,3 +28,8 @@ Thumbs.db
 # Generated runtime outputs
 artifacts/
 
+# Local databases and caches
+data/chromadb/
+data/imagery/
+data/corpus/processed/
+

@@ -23,3 +23,10 @@ seed:
 seed-dry-run:
 	python -m services.db.seed.seed --dry-run
 
+seed-semantic:
+	python -m services.semantic.seed.index_corpus
+
+seed-semantic-mock:
+	python -m services.semantic.seed.index_corpus --mock
+
+

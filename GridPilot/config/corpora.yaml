@@ -1,0 +1,16 @@
+version: "1.0.0"
+corpora:
+  regulatory:
+    path: "data/corpus/regulatory"
+    collection: "regulatory_corpus"
+  environmental:
+    path: "data/corpus/environmental"
+    collection: "environmental_corpus"
+  prior_studies:
+    path: "data/corpus/studies"
+    collection: "prior_study_outcomes"
+
+pipeline:
+  embedding_batch_size: 32
+  default_provider: "dashscope"
+  default_store: "chroma"
