@@ -75,6 +75,8 @@ class InMemoryWorkflowEngine(BaseWorkflowEngine):
 
     def _is_retryable(self, exception: Exception) -> bool:
         """Distinguish transient network/API issues from static configuration/validation issues."""
+        if isinstance(exception, asyncio.TimeoutError):
+            return True
         msg = str(exception).lower()
         # Retryable if it looks like connection, HTTP error, rate limit, or timeout
         retryable_keywords = ["timeout", "connection", "http", "rate limit", "503", "429", "request failed"]
@@ -147,13 +149,19 @@ class InMemoryWorkflowEngine(BaseWorkflowEngine):
                     agent = self._agents.get(agent_name)
 
                     if agent:
-                        # Execute registered agent
+                        # Execute registered agent with timeout
                         agent_input = AgentInput(context=context, task_inputs=task.inputs)
-                        agent_output = await agent.execute(agent_input)
+                        agent_output = await asyncio.wait_for(
+                            agent.execute(agent_input),
+                            timeout=task.timeout_seconds
+                        )
                         task.outputs = agent_output.model_dump()
                     else:
                         # Fallback to simulated execution if no agent is registered (mock run support)
-                        await asyncio.sleep(0.01)
+                        await asyncio.wait_for(
+                            asyncio.sleep(0.01),
+                            timeout=task.timeout_seconds
+                        )
                         task.outputs = {
                             "confidence": 1.0,
                             "sources": ["MockSource"],
