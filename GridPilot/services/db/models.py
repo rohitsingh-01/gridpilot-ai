@@ -2,7 +2,6 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from sqlalchemy import (
-    Column,
     ForeignKey,
     String,
     Integer,
@@ -11,6 +10,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     CheckConstraint,
+    Index,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -58,6 +58,8 @@ class Session(Base):
     """
     __tablename__ = "sessions"
     __table_args__ = (
+        Index("idx_sessions_user_id", "user_id"),
+        Index("idx_sessions_expires_at", "expires_at"),
         {"schema": "gridpilot"}
     )
 
@@ -124,6 +126,7 @@ class GridNode(Base):
     __table_args__ = (
         UniqueConstraint("region_id", "node_key", name="uq_grid_nodes_region_node"),
         CheckConstraint("node_type IN ('substation', 'generator_bus', 'load_bus')", name="chk_grid_node_type"),
+        Index("idx_grid_nodes_region_id", "region_id"),
         {"schema": "gridpilot"}
     )
 
@@ -163,6 +166,9 @@ class GridEdge(Base):
     __tablename__ = "grid_edges"
     __table_args__ = (
         CheckConstraint("edge_type IN ('line', 'transformer')", name="chk_grid_edge_type"),
+        Index("idx_grid_edges_region_id", "region_id"),
+        Index("idx_grid_edges_from_node", "from_node_id"),
+        Index("idx_grid_edges_to_node", "to_node_id"),
         {"schema": "gridpilot"}
     )
 
@@ -213,6 +219,8 @@ class Project(Base):
     __table_args__ = (
         CheckConstraint("technology IN ('solar', 'storage', 'solar_plus_storage', 'wind')", name="chk_project_technology"),
         CheckConstraint("status IN ('submitted', 'in_study', 'pending_review', 'approved', 'rejected')", name="chk_project_status"),
+        Index("idx_projects_region_id", "region_id"),
+        Index("idx_projects_status", "status"),
         {"schema": "gridpilot"}
     )
 
@@ -271,6 +279,9 @@ class Study(Base):
     __tablename__ = "studies"
     __table_args__ = (
         CheckConstraint("status IN ('running', 'pending_review', 'revision_requested', 'approved', 'rejected', 'failed')", name="chk_study_status"),
+        Index("idx_studies_project_id", "project_id"),
+        Index("idx_studies_status", "status"),
+        Index("idx_studies_state_snapshot_gin", "state_snapshot", postgresql_using="gin"),
         {"schema": "gridpilot"}
     )
 
@@ -328,6 +339,8 @@ class AgentRun(Base):
     __table_args__ = (
         CheckConstraint("agent_name IN ('site_intelligence', 'environmental_permit', 'power_flow', 'cost_allocation', 'regulatory', 'orchestrator')", name="chk_agent_run_name"),
         CheckConstraint("status IN ('running', 'succeeded', 'failed', 'escalated')", name="chk_agent_run_status"),
+        Index("idx_agent_runs_study_id", "study_id"),
+        Index("idx_agent_runs_agent_name", "agent_name"),
         {"schema": "gridpilot"}
     )
 
@@ -371,6 +384,7 @@ class PowerFlowResult(Base):
     """
     __tablename__ = "power_flow_results"
     __table_args__ = (
+        Index("idx_power_flow_results_study_id", "study_id"),
         {"schema": "gridpilot"}
     )
 
@@ -413,6 +427,7 @@ class CostAllocationResult(Base):
     """
     __tablename__ = "cost_allocation_results"
     __table_args__ = (
+        Index("idx_cost_allocation_results_study_id", "study_id"),
         {"schema": "gridpilot"}
     )
 
@@ -448,6 +463,7 @@ class EnvironmentalFlag(Base):
     __table_args__ = (
         CheckConstraint("flag_type IN ('wetland', 'habitat', 'other')", name="chk_env_flag_type"),
         CheckConstraint("severity IN ('info', 'review_required', 'blocking')", name="chk_env_flag_severity"),
+        Index("idx_environmental_flags_study_id", "study_id"),
         {"schema": "gridpilot"}
     )
 
@@ -485,6 +501,7 @@ class RegulatoryCitation(Base):
     """
     __tablename__ = "regulatory_citations"
     __table_args__ = (
+        Index("idx_regulatory_citations_study_id", "study_id"),
         {"schema": "gridpilot"}
     )
 
@@ -521,6 +538,7 @@ class HumanReview(Base):
     __tablename__ = "human_reviews"
     __table_args__ = (
         CheckConstraint("decision IN ('approved', 'rejected', 'revision_requested', 'comment')", name="chk_human_review_decision"),
+        Index("idx_human_reviews_study_id", "study_id"),
         {"schema": "gridpilot"}
     )
 
@@ -562,6 +580,8 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
     __table_args__ = (
         CheckConstraint("actor_type IN ('agent', 'orchestrator', 'human', 'system')", name="chk_audit_actor_type"),
+        Index("idx_audit_log_study_id", "study_id"),
+        Index("idx_audit_log_created_at", "created_at"),
         {"schema": "gridpilot"}
     )
 
@@ -604,6 +624,7 @@ class Document(Base):
     __tablename__ = "documents"
     __table_args__ = (
         CheckConstraint("doc_type IN ('satellite_tile', 'study_pdf', 'audit_export')", name="chk_document_doc_type"),
+        Index("idx_documents_study_id", "study_id"),
         {"schema": "gridpilot"}
     )
 

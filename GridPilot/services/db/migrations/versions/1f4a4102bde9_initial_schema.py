@@ -1,8 +1,8 @@
 """initial_schema
 
-Revision ID: 76de0f87122c
+Revision ID: 1f4a4102bde9
 Revises: None
-Create Date: 2026-07-14 12:36:58.217045
+Create Date: 2026-07-14 12:54:52.270368
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '76de0f87122c'
+revision: str = '1f4a4102bde9'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -57,6 +57,7 @@ def upgrade() -> None:
     sa.UniqueConstraint('region_id', 'node_key', name='uq_grid_nodes_region_node'),
     schema='gridpilot'
     )
+    op.create_index('idx_grid_nodes_region_id', 'grid_nodes', ['region_id'], unique=False, schema='gridpilot')
     op.create_table('sessions',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -68,6 +69,8 @@ def upgrade() -> None:
     sa.UniqueConstraint('token_hash'),
     schema='gridpilot'
     )
+    op.create_index('idx_sessions_expires_at', 'sessions', ['expires_at'], unique=False, schema='gridpilot')
+    op.create_index('idx_sessions_user_id', 'sessions', ['user_id'], unique=False, schema='gridpilot')
     op.create_table('grid_edges',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('region_id', sa.UUID(), nullable=False),
@@ -85,6 +88,9 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     schema='gridpilot'
     )
+    op.create_index('idx_grid_edges_from_node', 'grid_edges', ['from_node_id'], unique=False, schema='gridpilot')
+    op.create_index('idx_grid_edges_region_id', 'grid_edges', ['region_id'], unique=False, schema='gridpilot')
+    op.create_index('idx_grid_edges_to_node', 'grid_edges', ['to_node_id'], unique=False, schema='gridpilot')
     op.create_table('projects',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('region_id', sa.UUID(), nullable=False),
@@ -105,6 +111,8 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     schema='gridpilot'
     )
+    op.create_index('idx_projects_region_id', 'projects', ['region_id'], unique=False, schema='gridpilot')
+    op.create_index('idx_projects_status', 'projects', ['status'], unique=False, schema='gridpilot')
     op.create_table('studies',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('project_id', sa.UUID(), nullable=False),
@@ -120,6 +128,9 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     schema='gridpilot'
     )
+    op.create_index('idx_studies_project_id', 'studies', ['project_id'], unique=False, schema='gridpilot')
+    op.create_index('idx_studies_state_snapshot_gin', 'studies', ['state_snapshot'], unique=False, schema='gridpilot', postgresql_using='gin')
+    op.create_index('idx_studies_status', 'studies', ['status'], unique=False, schema='gridpilot')
     op.create_table('agent_runs',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('study_id', sa.UUID(), nullable=False),
@@ -142,6 +153,8 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     schema='gridpilot'
     )
+    op.create_index('idx_agent_runs_agent_name', 'agent_runs', ['agent_name'], unique=False, schema='gridpilot')
+    op.create_index('idx_agent_runs_study_id', 'agent_runs', ['study_id'], unique=False, schema='gridpilot')
     op.create_table('audit_log',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('study_id', sa.UUID(), nullable=True),
@@ -157,6 +170,8 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     schema='gridpilot'
     )
+    op.create_index('idx_audit_log_created_at', 'audit_log', ['created_at'], unique=False, schema='gridpilot')
+    op.create_index('idx_audit_log_study_id', 'audit_log', ['study_id'], unique=False, schema='gridpilot')
     op.create_table('cost_allocation_results',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('study_id', sa.UUID(), nullable=False),
@@ -167,6 +182,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     schema='gridpilot'
     )
+    op.create_index('idx_cost_allocation_results_study_id', 'cost_allocation_results', ['study_id'], unique=False, schema='gridpilot')
     op.create_table('documents',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('study_id', sa.UUID(), nullable=True),
@@ -180,6 +196,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     schema='gridpilot'
     )
+    op.create_index('idx_documents_study_id', 'documents', ['study_id'], unique=False, schema='gridpilot')
     op.create_table('environmental_flags',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('study_id', sa.UUID(), nullable=False),
@@ -196,6 +213,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     schema='gridpilot'
     )
+    op.create_index('idx_environmental_flags_study_id', 'environmental_flags', ['study_id'], unique=False, schema='gridpilot')
     op.create_table('human_reviews',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('study_id', sa.UUID(), nullable=False),
@@ -210,6 +228,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     schema='gridpilot'
     )
+    op.create_index('idx_human_reviews_study_id', 'human_reviews', ['study_id'], unique=False, schema='gridpilot')
     op.create_table('power_flow_results',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('study_id', sa.UUID(), nullable=False),
@@ -225,6 +244,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     schema='gridpilot'
     )
+    op.create_index('idx_power_flow_results_study_id', 'power_flow_results', ['study_id'], unique=False, schema='gridpilot')
     op.create_table('regulatory_citations',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('study_id', sa.UUID(), nullable=False),
@@ -237,23 +257,123 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     schema='gridpilot'
     )
+    op.create_index('idx_regulatory_citations_study_id', 'regulatory_citations', ['study_id'], unique=False, schema='gridpilot')
+    # 1. Idempotently create role gridpilot_runtime if current user has permissions
+    op.execute(sa.text("""
+        DO $$
+        BEGIN
+            -- Check if current user has superuser or createrole privileges
+            IF EXISTS (
+                SELECT 1 FROM pg_roles 
+                WHERE rolname = current_user AND (rolsuper OR rolcreaterole)
+            ) THEN
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gridpilot_runtime') THEN
+                    CREATE ROLE gridpilot_runtime WITH LOGIN PASSWORD 'postgres_dev_password_change_me';
+                END IF;
+            ELSE
+                RAISE WARNING 'Current database user lacks privileges to CREATE ROLE. Skipping gridpilot_runtime role creation.';
+            END IF;
+        END
+        $$;
+    """))
+
+    # 2. Grant privileges to gridpilot_runtime (only if the role exists)
+    op.execute(sa.text("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gridpilot_runtime') THEN
+                GRANT USAGE ON SCHEMA gridpilot TO gridpilot_runtime;
+                GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA gridpilot TO gridpilot_runtime;
+                REVOKE UPDATE, DELETE ON TABLE gridpilot.audit_log FROM gridpilot_runtime;
+            END IF;
+        END
+        $$;
+    """))
+
+    # 3. Create the prevent modify trigger function on audit_log
+    op.execute(sa.text("""
+        CREATE OR REPLACE FUNCTION gridpilot.prevent_audit_log_modification()
+        RETURNS TRIGGER AS $func$
+        BEGIN
+            RAISE EXCEPTION 'audit_log table is append-only and immutable. UPDATE and DELETE operations are prohibited.';
+        END;
+        $func$ LANGUAGE plpgsql;
+    """))
+
+    # 4. Create trigger on audit_log
+    op.execute(sa.text("""
+        CREATE TRIGGER trg_prevent_audit_log_modify
+        BEFORE UPDATE OR DELETE ON gridpilot.audit_log
+        FOR EACH ROW
+        EXECUTE FUNCTION gridpilot.prevent_audit_log_modification();
+    """))
+
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
+    
+    # 1. Drop trigger on audit_log
+    op.execute(sa.text("DROP TRIGGER IF EXISTS trg_prevent_audit_log_modify ON gridpilot.audit_log;"))
+
+    # 2. Drop trigger function
+    op.execute(sa.text("DROP FUNCTION IF EXISTS gridpilot.prevent_audit_log_modification();"))
+
+    # 3. Revoke permissions and drop role gridpilot_runtime (if role exists and user has privileges)
+    op.execute(sa.text("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gridpilot_runtime') THEN
+                REVOKE ALL PRIVILEGES ON SCHEMA gridpilot FROM gridpilot_runtime;
+                REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA gridpilot FROM gridpilot_runtime;
+                
+                IF EXISTS (
+                    SELECT 1 FROM pg_roles 
+                    WHERE rolname = current_user AND (rolsuper OR rolcreaterole)
+                ) THEN
+                    DROP ROLE gridpilot_runtime;
+                ELSE
+                    RAISE WARNING 'Current database user lacks privileges to DROP ROLE. Skipping dropping gridpilot_runtime role.';
+                END IF;
+            END IF;
+        END
+        $$;
+    """))
+
+    op.drop_index('idx_regulatory_citations_study_id', table_name='regulatory_citations', schema='gridpilot')
     op.drop_table('regulatory_citations', schema='gridpilot')
+    op.drop_index('idx_power_flow_results_study_id', table_name='power_flow_results', schema='gridpilot')
     op.drop_table('power_flow_results', schema='gridpilot')
+    op.drop_index('idx_human_reviews_study_id', table_name='human_reviews', schema='gridpilot')
     op.drop_table('human_reviews', schema='gridpilot')
+    op.drop_index('idx_environmental_flags_study_id', table_name='environmental_flags', schema='gridpilot')
     op.drop_table('environmental_flags', schema='gridpilot')
+    op.drop_index('idx_documents_study_id', table_name='documents', schema='gridpilot')
     op.drop_table('documents', schema='gridpilot')
+    op.drop_index('idx_cost_allocation_results_study_id', table_name='cost_allocation_results', schema='gridpilot')
     op.drop_table('cost_allocation_results', schema='gridpilot')
+    op.drop_index('idx_audit_log_study_id', table_name='audit_log', schema='gridpilot')
+    op.drop_index('idx_audit_log_created_at', table_name='audit_log', schema='gridpilot')
     op.drop_table('audit_log', schema='gridpilot')
+    op.drop_index('idx_agent_runs_study_id', table_name='agent_runs', schema='gridpilot')
+    op.drop_index('idx_agent_runs_agent_name', table_name='agent_runs', schema='gridpilot')
     op.drop_table('agent_runs', schema='gridpilot')
+    op.drop_index('idx_studies_status', table_name='studies', schema='gridpilot')
+    op.drop_index('idx_studies_state_snapshot_gin', table_name='studies', schema='gridpilot', postgresql_using='gin')
+    op.drop_index('idx_studies_project_id', table_name='studies', schema='gridpilot')
     op.drop_table('studies', schema='gridpilot')
+    op.drop_index('idx_projects_status', table_name='projects', schema='gridpilot')
+    op.drop_index('idx_projects_region_id', table_name='projects', schema='gridpilot')
     op.drop_table('projects', schema='gridpilot')
+    op.drop_index('idx_grid_edges_to_node', table_name='grid_edges', schema='gridpilot')
+    op.drop_index('idx_grid_edges_region_id', table_name='grid_edges', schema='gridpilot')
+    op.drop_index('idx_grid_edges_from_node', table_name='grid_edges', schema='gridpilot')
     op.drop_table('grid_edges', schema='gridpilot')
+    op.drop_index('idx_sessions_user_id', table_name='sessions', schema='gridpilot')
+    op.drop_index('idx_sessions_expires_at', table_name='sessions', schema='gridpilot')
     op.drop_table('sessions', schema='gridpilot')
+    op.drop_index('idx_grid_nodes_region_id', table_name='grid_nodes', schema='gridpilot')
     op.drop_table('grid_nodes', schema='gridpilot')
     op.drop_table('utility_regions', schema='gridpilot')
     op.drop_table('users', schema='gridpilot')
