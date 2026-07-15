@@ -1,0 +1,16 @@
+version: "1.0.0"
+
+solver:
+  default: "mock"
+
+limits:
+  voltage_min_pu: 0.95
+  voltage_max_pu: 1.05
+  thermal_limit_percentage: 100
+
+loss_model:
+  percentage: 2.0
+
+validation:
+  allow_islands: false
+  require_slack_bus: true
