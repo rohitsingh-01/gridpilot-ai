@@ -1,6 +1,7 @@
 """Site Intelligence Agent models including Pydantic data schemas, requests, result envelopes, severity enums, and result containers."""
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import List, Dict, Any, Optional, Generic, TypeVar
 from pydantic import BaseModel, Field, ConfigDict
@@ -156,6 +157,7 @@ class FindingReference(BaseModel):
 
 class EnvironmentalFinding(BaseModel):
     """Results of wetlands and habitat overlap spatial calculations."""
+    id: str
     label: str
     description: str
     severity: Severity
@@ -164,6 +166,7 @@ class EnvironmentalFinding(BaseModel):
 
 class InfrastructureFinding(BaseModel):
     """Results of physical infrastructure (lines, substations) proximity lookups."""
+    id: str
     label: str
     description: str
     severity: Severity
@@ -173,6 +176,7 @@ class InfrastructureFinding(BaseModel):
 
 class RegulatoryFinding(BaseModel):
     """Grounded citation results from semantic tarification memory search."""
+    id: str
     citation: str
     text_chunk: str
     severity: Severity
@@ -184,6 +188,7 @@ class Recommendation(BaseModel):
     title: str
     description: str
     priority: str  # e.g., "HIGH", "MEDIUM", "LOW"
+    category: str  # e.g., "environmental", "regulatory", "grid", "economic", "routing"
     related_findings: List[str] = Field(default_factory=list)
 
 
@@ -196,8 +201,28 @@ class ToolExecutionSummary(BaseModel):
     warning_count: int = 0
 
 
+class ConfidenceBreakdown(BaseModel):
+    """Structured breakdown details of the agent's confidence calculation."""
+    base_score: float = 1.0
+    imagery_penalty: float = 0.0
+    osm_penalty: float = 0.0
+    semantic_penalty: float = 0.0
+    geometry_penalty: float = 0.0
+    final_score: float = 1.0
+
+
+class Assumption(BaseModel):
+    """Structured representing a logical assumption formulated by the agent."""
+    id: str
+    description: str
+    severity: Severity
+    source: str
+
+
 class EvidenceBundle(BaseModel):
     """Consolidated strongly-typed data package passed to the reasoning engine."""
+    bundle_version: str = "1.0.0"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     project: ProjectModel
     study: StudyModel
     region: RegionModel
@@ -212,6 +237,7 @@ class EvidenceBundle(BaseModel):
 class SiteIntelligenceReport(BaseModel):
     """Production-grade structured output report for auditing and persistence."""
     report_version: str = "1.0.0"
+    report_sha256: str = ""
     generated_at: str
     workflow_id: str
     study_id: str
@@ -227,6 +253,7 @@ class SiteIntelligenceReport(BaseModel):
     tool_metrics: List[ToolExecutionSummary] = Field(default_factory=list)
     
     confidence_score: float = Field(ge=0.0, le=1.0)
-    assumptions: List[str] = Field(default_factory=list)
+    confidence_breakdown: ConfidenceBreakdown
+    assumptions: List[Assumption] = Field(default_factory=list)
     limitations: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)

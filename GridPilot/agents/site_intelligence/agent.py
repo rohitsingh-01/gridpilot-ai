@@ -1,13 +1,13 @@
-"""Site Intelligence Agent coordinating execution pipelines and returning standardized outputs."""
+"""Site Intelligence Agent implementing the BaseReasoningAgent orchestration blueprint."""
 from __future__ import annotations
 
 import asyncio
 import time
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from services.workflow.interfaces.agent import BaseAgent, AgentInput, AgentOutput, AgentExecutionMetadata
-from services.db.repositories.interfaces import IUserRepository, IProjectRepository, IStudyRepository, IUtilityRegionRepository
+from services.workflow.interfaces.agent import AgentInput
+from services.db.repositories.interfaces import IUtilityRegionRepository
+from agents.base_agent import BaseReasoningAgent
 from agents.site_intelligence.interfaces import (
     ToolContext,
     ISemanticService,
@@ -30,14 +30,14 @@ from agents.site_intelligence.models import (
     OSMRequest,
     IntersectionRequest,
     SearchRequest,
+    SiteIntelligenceReport,
 )
 from agents.site_intelligence.registry import ToolRegistry
 from agents.site_intelligence.report import build_report
-import agents.site_intelligence.tools  # Trigger dynamic tool registration
 
 
-class SiteIntelligenceAgent(BaseAgent):
-    """Orchestrator coordinating site analysis tool executions and deterministic reasoning."""
+class SiteIntelligenceAgent(BaseReasoningAgent):
+    """Subclass orchestrator for Site location checks, wetland buffers, and grid intersections."""
 
     def __init__(
         self,
@@ -49,21 +49,17 @@ class SiteIntelligenceAgent(BaseAgent):
         cache_service: ICacheService,
         telemetry_service: ITelemetryService,
     ) -> None:
+        super().__init__(telemetry_service)
         self.region_repo = region_repository
         self.semantic_srv = semantic_service
         self.imagery_srv = imagery_service
         self.geo_srv = geo_service
         self.osm_srv = osm_service
         self.cache_srv = cache_service
-        self.telemetry_srv = telemetry_service
 
-    async def execute(self, inputs: AgentInput) -> AgentOutput:
-        start_time = time.perf_counter()
-        trace_id = inputs.context.metadata.get("trace_id", f"trace_{int(time.time())}")
-        workflow_id = inputs.context.metadata.get("workflow_id", f"wf_{inputs.context.study_id}")
-        
-        # 1. Initialize ToolContext
-        tool_context = ToolContext(
+    def build_tool_context(self, inputs: AgentInput, trace_id: str) -> ToolContext:
+        """Construct a ToolContext instance from inputs."""
+        return ToolContext(
             user_repository=inputs.context.user_repository,
             project_repository=inputs.context.project_repository,
             study_repository=inputs.context.study_repository,
@@ -75,13 +71,20 @@ class SiteIntelligenceAgent(BaseAgent):
             cache_service=self.cache_srv,
             telemetry_service=self.telemetry_srv,
             user=inputs.context.metadata.get("user", "agent_system"),
-            permissions=inputs.context.metadata.get("permissions", ["read:project", "read:study", "read:region", "read:imagery", "read:osm", "read:spatial", "read:semantic"]),
+            permissions=inputs.context.metadata.get("permissions", [
+                "read:project", "read:study", "read:region", "read:imagery", "read:osm", "read:spatial", "read:semantic"
+            ]),
             trace_id=trace_id,
         )
 
-        tool_metrics: List[ToolExecutionSummary] = []
-        
-        # Helper to execute tools with duration telemetry
+    async def gather_evidence(
+        self,
+        tool_context: ToolContext,
+        inputs: AgentInput,
+        tool_metrics: List[ToolExecutionSummary],
+    ) -> EvidenceBundle:
+        """Sequential tool queries to compile an EvidenceBundle."""
+
         async def run_tool(name: str, request: Any, optional: bool = False) -> Optional[Any]:
             tool_start = time.perf_counter()
             success = False
@@ -89,7 +92,9 @@ class SiteIntelligenceAgent(BaseAgent):
             res = None
             try:
                 tool_func = ToolRegistry.get(name)
-                res = await tool_func(tool_context, request)
+                # Pass cancellation event if available in workflow context metadata
+                cancellation_token = inputs.context.metadata.get("cancellation_token")
+                res = await tool_func(tool_context, request, cancellation_token)
                 success = True
                 if res and not res.success:
                     success = False
@@ -97,7 +102,6 @@ class SiteIntelligenceAgent(BaseAgent):
             except Exception as exc:
                 if not optional:
                     raise
-                # Safe fallback for optional tools (e.g. imagery tile misses)
                 warning_count = 1
                 return None
             finally:
@@ -112,15 +116,13 @@ class SiteIntelligenceAgent(BaseAgent):
                     )
                 )
 
-        # 2. Sequential Execution Pipeline
-        # Phase A: Database Lookups
+        # 1. Database Lookups
         proj_res = await run_tool("get_project", ProjectRequest(project_id=inputs.context.project_id))
         study_res = await run_tool("get_study", StudyRequest(study_id=inputs.context.study_id))
         
         region_id = study_res.data.get("region_id") or "reg_default"
         region_res = await run_tool("get_region", RegionRequest(region_id=region_id))
 
-        # Convert entity payloads
         proj_model = ProjectModel(
             id=proj_res.data["id"],
             name=proj_res.data["name"],
@@ -138,22 +140,21 @@ class SiteIntelligenceAgent(BaseAgent):
             code=region_res.data["code"],
         )
 
-        # Phase B: Satellite Imagery Lookup (Optional)
+        # 2. Satellite imagery (optional fallback)
         img_res = await run_tool(
             "fetch_satellite_tile_metadata",
             TileRequest(region_id=region_model.id, scene_date="2026-07-15"),
             optional=True,
         )
 
-        # Phase C: OSM Lookup (Optional)
+        # 3. OpenStreetMap grid (optional fallback)
         osm_res = await run_tool(
             "query_osm",
             OSMRequest(bbox=[42.0, -71.5, 42.1, -71.4], tags=["power=line"]),
             optional=True,
         )
 
-        # Phase D: Spatial Buffers & Intersections
-        # Dummy polygon for standard test cases
+        # 4. Spatial geometry Buffers/Intersections
         aoi_poly = {"type": "Polygon", "coordinates": [[[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]]}
         target_poly = {"type": "Polygon", "coordinates": [[[0.5, 0.5], [0.5, 0.6], [0.6, 0.6], [0.6, 0.5], [0.5, 0.5]]]}
         
@@ -162,14 +163,13 @@ class SiteIntelligenceAgent(BaseAgent):
             IntersectionRequest(aoi_geojson=aoi_poly, target_geojson=target_poly),
         )
 
-        # Phase E: Semantic Search
+        # 5. Semantic Search rules
         sem_res = await run_tool(
             "semantic_search",
             SearchRequest(query="wetlands restrictions regulatory precedents", collection="environmental"),
         )
 
-        # 3. Consolidate into EvidenceBundle
-        evidence = EvidenceBundle(
+        return EvidenceBundle(
             project=proj_model,
             study=study_model,
             region=region_model,
@@ -179,32 +179,17 @@ class SiteIntelligenceAgent(BaseAgent):
             geometry_results=geom_res.data if geom_res else {},
         )
 
-        # 4. Generate structured report
-        report = build_report(
+    def compile_report(
+        self,
+        evidence: EvidenceBundle,
+        tool_context: ToolContext,
+        workflow_id: str,
+        tool_metrics: List[ToolExecutionSummary],
+    ) -> SiteIntelligenceReport:
+        """Delegate report construction to the report builder utility."""
+        return build_report(
             evidence=evidence,
-            trace_id=trace_id,
+            trace_id=tool_context.trace_id,
             workflow_id=workflow_id,
             tool_metrics=tool_metrics,
-        )
-
-        dur_total_ms = int((time.perf_counter() - start_time) * 1000)
-
-        # 5. Telemetry updates
-        self.telemetry_srv.record_metric(
-            "agent.execution_duration_ms", dur_total_ms, {"agent": "site_intelligence"}
-        )
-
-        # Return standard AgentOutput envelope
-        return AgentOutput(
-            confidence=report.confidence_score,
-            sources=[f"OSS: {m.tool_name}" for m in tool_metrics],
-            assumptions=report.assumptions,
-            raw_model_output=f"Risk level: {report.overall_risk}. Completed: {report.status}.",
-            structured_data=report.model_dump(),
-            execution_metadata=AgentExecutionMetadata(
-                execution_duration_ms=dur_total_ms,
-                retry_count=0,
-                warnings=report.warnings + [f"Missing tool data" for m in tool_metrics if not m.success],
-                agent_version="1.0.0",
-            )
         )
