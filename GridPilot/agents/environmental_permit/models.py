@@ -1,4 +1,4 @@
-"""Models, requests, results, and domain exceptions for the Environmental Permit Agent tools."""
+"""Models, requests, results, and reporting schemas for the Environmental Permit Agent."""
 from __future__ import annotations
 
 import os
@@ -194,13 +194,11 @@ class EnvironmentalConfigValidator(BaseModel):
         priorities = []
         layer_names = []
         for name, config in v.items():
-            # Verify priority unique
             p = config.get("priority")
             if p in priorities:
                 raise ValueError(f"Duplicate priority '{p}' found in environmental tools config.")
             priorities.append(p)
 
-            # Verify layer names unique
             layer = config.get("layer_name")
             if layer:
                 if layer in layer_names:
@@ -208,3 +206,90 @@ class EnvironmentalConfigValidator(BaseModel):
                 layer_names.append(layer)
 
         return v
+
+
+# --- Agent Specific Reporting Models ---
+
+class ReasoningSummary(BaseModel):
+    """Structured summary of the reasoning decisions and performance statistics."""
+    rules_evaluated: int
+    findings_generated: int
+    recommendations_generated: int
+    assumptions_used: int
+    execution_duration_ms: int
+
+
+class PermitFinding(BaseModel):
+    """Environmental constraint finding including full traceability references."""
+    id: str  # Deterministic PERMIT-0001 format
+    title: str
+    severity: Severity
+    description: str
+    supporting_evidence: str
+    citations: List[str] = Field(default_factory=list)
+    geometry_references: List[FindingReference] = Field(default_factory=list)
+
+
+class PermitRequirement(BaseModel):
+    """Mandatory permitting process details mapped by the reasoning engine."""
+    agency: str
+    requirement: str
+    statutory_reference: str
+    mitigation_requirement: str
+    deadline: str
+    source: str
+
+
+class PermitRecommendation(BaseModel):
+    """Prioritized mitigation recommended for permitting success."""
+    id: str  # Deterministic REC-0001 format
+    priority: str
+    category: str
+    action: str
+    rationale: str
+    related_findings: List[str] = Field(default_factory=list)
+
+
+class ConfidenceBreakdown(BaseModel):
+    """Breakdown of confidence scoring calculations."""
+    base_score: float = 1.0
+    imagery_deduction: float = 0.0
+    habitat_deduction: float = 0.0
+    wetlands_deduction: float = 0.0
+    semantic_deduction: float = 0.0
+    geometry_deduction: float = 0.0
+    final_score: float = 1.0
+
+
+class Assumption(BaseModel):
+    """Assumptions used when data gaps or warnings are encountered."""
+    id: str
+    description: str
+    severity: Severity
+    source: str
+
+
+class EnvironmentalPermitReport(BaseModel):
+    """The canonical validated report output from the Environmental Permit Agent."""
+    report_version: str = "1.0.0"
+    schema_version: str = "1.0.0"
+    agent_name: str = "EnvironmentalPermitAgent"
+    agent_version: str = "1.0.0"
+    reasoning_version: str = "1.0.0"
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    workflow_id: str
+    study_id: str
+    trace_id: str
+    execution_status: str  # "success" or "partial"
+    confidence_score: float
+    confidence_breakdown: ConfidenceBreakdown
+    overall_severity: Severity
+    permit_findings: List[PermitFinding] = Field(default_factory=list)
+    permit_requirements: List[PermitRequirement] = Field(default_factory=list)
+    recommendations: List[PermitRecommendation] = Field(default_factory=list)
+    assumptions: List[Assumption] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    reasoning_summary: ReasoningSummary
+    report_sha256: str = ""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
