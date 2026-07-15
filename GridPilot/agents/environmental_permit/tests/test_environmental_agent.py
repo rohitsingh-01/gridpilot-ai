@@ -24,6 +24,7 @@ from agents.environmental_permit.models import (
     ExecutionSummary,
     EnvironmentalPermitReport,
     Severity,
+    PermitRecommendation,
 )
 from agents.environmental_permit.agent import EnvironmentalPermitAgent
 from agents.environmental_permit.tests.test_environmental_tools import MockEnvironmentalService
@@ -187,3 +188,94 @@ def test_empty_evidence_bundle_handling():
     assert len(report.permit_findings) == 0
     assert report.reasoning_summary.rules_evaluated == 4
     assert report.reasoning_summary.findings_generated == 0
+
+
+def test_metadata_serialization():
+    """Verify report version and agent metadata fields exist and serialize properly."""
+    empty_bundle = EnvironmentalEvidenceBundle()
+    report = build_report(empty_bundle, "t", "w", "s")
+    serialized = report.model_dump()
+    
+    assert serialized["report_version"] == "1.0.0"
+    assert serialized["schema_version"] == "1.0.0"
+    assert serialized["agent_name"] == "EnvironmentalPermitAgent"
+    assert serialized["agent_version"] == "1.0.0"
+    assert serialized["reasoning_version"] == "1.0.0"
+
+
+def test_recommendation_ordering():
+    """Verify recommendations are sorted by priority and category deterministically."""
+    from agents.environmental_permit.reasoning import assign_deterministic_ids
+    recs = [
+        PermitRecommendation(id="REC-TEMP-2", priority="HIGH", category="habitat", action="Consult USFWS", rationale=""),
+        PermitRecommendation(id="REC-TEMP-1", priority="CRITICAL", category="wetland", action="Apply NOI", rationale=""),
+        PermitRecommendation(id="REC-TEMP-3", priority="MEDIUM", category="geometry", action="Layout setback change", rationale="")
+    ]
+    _, sorted_recs = assign_deterministic_ids([], recs)
+    
+    assert sorted_recs[0].id == "REC-0001"
+    assert sorted_recs[0].priority == "CRITICAL"
+    assert sorted_recs[1].id == "REC-0002"
+    assert sorted_recs[1].priority == "HIGH"
+    assert sorted_recs[2].id == "REC-0003"
+    assert sorted_recs[2].priority == "MEDIUM"
+
+
+async def test_agent_early_cancellation(env_agent_context):
+    """Verify agent execution aborts immediately when cancellation token is set."""
+    agent = EnvironmentalPermitAgent(
+        region_repository=env_agent_context.region_repository,
+        semantic_service=env_agent_context.semantic_service,
+        imagery_service=env_agent_context.imagery_service,
+        geo_service=env_agent_context.geo_service,
+        osm_service=env_agent_context.osm_service,
+        cache_service=env_agent_context.cache_service,
+        telemetry_service=env_agent_context.telemetry_service,
+        environmental_service=env_agent_context.environmental_service
+    )
+
+    cancel_token = asyncio.Event()
+    cancel_token.set()  # Cancel early
+
+    workflow_ctx = WorkflowContext(
+        study_id="study_test_123",
+        project_id="proj_test_123",
+        user_repository=env_agent_context.user_repository,
+        project_repository=env_agent_context.project_repository,
+        study_repository=env_agent_context.study_repository,
+        semantic_store=MagicMock(spec=BaseSemanticStore),
+        metadata={"user": "tester", "trace_id": "t1", "cancellation_token": cancel_token}
+    )
+    inputs = AgentInput(context=workflow_ctx)
+    with pytest.raises(asyncio.CancelledError):
+        await agent.execute(inputs)
+
+
+async def test_agent_telemetry_metrics_registered(env_agent_context):
+    """Verify execution duration metrics are written to the telemetry service."""
+    agent = EnvironmentalPermitAgent(
+        region_repository=env_agent_context.region_repository,
+        semantic_service=env_agent_context.semantic_service,
+        imagery_service=env_agent_context.imagery_service,
+        geo_service=env_agent_context.geo_service,
+        osm_service=env_agent_context.osm_service,
+        cache_service=env_agent_context.cache_service,
+        telemetry_service=env_agent_context.telemetry_service,
+        environmental_service=env_agent_context.environmental_service
+    )
+
+    workflow_ctx = WorkflowContext(
+        study_id="study_test_123",
+        project_id="proj_test_123",
+        user_repository=env_agent_context.user_repository,
+        project_repository=env_agent_context.project_repository,
+        study_repository=env_agent_context.study_repository,
+        semantic_store=MagicMock(spec=BaseSemanticStore),
+        metadata={"user": "tester", "trace_id": "t1"}
+    )
+    inputs = AgentInput(context=workflow_ctx)
+    await agent.execute(inputs)
+
+    # Check metrics recorded
+    metrics = env_agent_context.telemetry_service.metrics
+    assert any(m[0] == "agent.execution_duration_ms" for m in metrics)
