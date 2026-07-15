@@ -1,4 +1,4 @@
-"""Regulatory and environmental permit lookup tools."""
+"""Regulatory and environmental permit lookup tools supporting batch checks."""
 from __future__ import annotations
 
 import asyncio
@@ -9,6 +9,7 @@ from agents.site_intelligence.tools.decorators import tool_wrapper
 from agents.environmental_permit.models import (
     PermitResult,
     PermitQueryRequest,
+    PermitBatchRequest,
     PermitLookupError,
     Severity,
 )
@@ -55,3 +56,40 @@ async def query_permit_requirements(
         return sort_permits(results)
     except Exception as exc:
         raise PermitLookupError(f"Failed to retrieve permit requirements: {str(exc)}")
+
+
+@tool_wrapper(required_permissions=["read:environmental"])
+async def query_permit_requirements_batch(
+    context: ToolContext,
+    request: PermitBatchRequest,
+    cancellation_token: Optional[asyncio.Event] = None,
+) -> List[PermitResult]:
+    """Batch query permit requirements concurrently for multiple query targets."""
+    if context.environmental_service is None:
+        return []
+
+    if cancellation_token and cancellation_token.is_set():
+        raise asyncio.CancelledError("Batch permit requirements query aborted.")
+
+    async def fetch_single(query: str) -> List[PermitResult]:
+        try:
+            return await context.environmental_service.query_permit_requirements(query)
+        except Exception as exc:
+            context.telemetry_service.log_structured(
+                "WARNING",
+                f"Failed to query permits in batch: {str(exc)}",
+                {"trace_id": context.trace_id}
+            )
+            return []
+
+    # Run concurrently
+    tasks = [fetch_single(q) for q in request.queries]
+    nested_results = await asyncio.gather(*tasks)
+
+    combined_results: List[PermitResult] = []
+    for r_list in nested_results:
+        combined_results.extend(r_list)
+
+    # Deduplicate
+    unique_results = {p.id: p for p in combined_results}.values()
+    return sort_permits(list(unique_results))

@@ -15,11 +15,14 @@ from agents.environmental_permit.models import (
     HabitatQueryRequest,
     HabitatBatchRequest,
     PermitQueryRequest,
+    PermitBatchRequest,
     BufferAnalysisRequest,
     EnvironmentalToolError,
     PermitLookupError,
     HabitatLookupError,
     WetlandLookupError,
+    ConfigurationValidationError,
+    EnvironmentalConfigValidator,
 )
 
 __all__ = [
@@ -36,9 +39,12 @@ __all__ = [
     "HabitatQueryRequest",
     "HabitatBatchRequest",
     "PermitQueryRequest",
+    "PermitBatchRequest",
     "BufferAnalysisRequest",
     "EnvironmentalToolError",
     "PermitLookupError",
     "HabitatLookupError",
     "WetlandLookupError",
+    "ConfigurationValidationError",
+    "EnvironmentalConfigValidator",
 ]

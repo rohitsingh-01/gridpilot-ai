@@ -31,6 +31,11 @@ class IEnvironmentalAnalysisService(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def query_permit_requirements_batch(self, queries: List[str]) -> List[PermitResult]:
+        """Batch query semantic regulatory memory for multiple permit requests."""
+        pass
+
+    @abc.abstractmethod
     def calculate_buffers(self, aoi_geojson: Dict[str, Any], buffer_m: float) -> BufferResult:
         """Evaluate buffer setback bounds and identify setback compliance."""
         pass

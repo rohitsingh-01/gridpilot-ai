@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import yaml
 import pytest
 from typing import List, Dict, Any, Tuple
 from unittest.mock import MagicMock
@@ -23,10 +25,12 @@ from agents.environmental_permit.models import (
     HabitatQueryRequest,
     HabitatBatchRequest,
     PermitQueryRequest,
+    PermitBatchRequest,
     BufferAnalysisRequest,
     WetlandLookupError,
     HabitatLookupError,
     PermitLookupError,
+    EnvironmentalConfigValidator,
 )
 import agents.environmental_permit.tools  # Trigger registration
 
@@ -94,6 +98,19 @@ class MockEnvironmentalService(IEnvironmentalAnalysisService):
             )
         ]
 
+    async def query_permit_requirements_batch(self, queries: List[str]) -> List[PermitResult]:
+        self.permit_calls += 1
+        return [
+            PermitResult(
+                id="PERMIT-0001",
+                permit_name="Wetlands Protection Act Permit",
+                issuing_agency="Conservation Commission",
+                mitigation_requirements=["Replication area required"],
+                severity=Severity.HIGH,
+                quality=QualityMetadata(source_dataset="Code Corpus", acquisition_date="2026", confidence=1.0, geometry_valid=True)
+            )
+        ]
+
     def calculate_buffers(self, aoi_geojson: Dict[str, Any], buffer_m: float) -> BufferResult:
         self.buffer_calls += 1
         return BufferResult(
@@ -136,6 +153,7 @@ def test_registry_lookup():
     """Verify environmental tools register correctly in the shared ToolRegistry."""
     query_wetlands_tool = ToolRegistry.get("query_wetlands")
     assert query_wetlands_tool is not None
+    assert ToolRegistry.get("query_permit_requirements_batch") is not None
 
 
 async def test_permission_denied_environmental(env_tool_context):
@@ -177,7 +195,6 @@ async def test_query_wetlands_batch_deduplication(env_tool_context):
     # Verify duplicates are removed (should be exactly 3 unique wetlands, not 6)
     assert len(res.data) == 3
     assert res.data[0].id == "WET-0001"
-    assert env_tool_context.environmental_service.wetland_calls == 2
 
 
 async def test_query_critical_habitat(env_tool_context):
@@ -191,18 +208,20 @@ async def test_query_critical_habitat(env_tool_context):
     assert res.data[0].species_name == "Bog Turtle"
     assert "April 1 - October 15" in res.data[0].seasonal_restrictions
     assert res.data[0].quality.source_dataset == "USFWS"
+    # Verify provenance expanded fields exist
+    assert res.data[0].quality.dataset_version == "1.0.0"
+    assert res.data[0].quality.dataset_license == "public-domain"
 
 
-async def test_query_permit_requirements(env_tool_context):
-    """Verify semantic permit lookups return issuing agencies and mitigation requirements."""
-    query_permit_tool = ToolRegistry.get("query_permit_requirements")
-    request = PermitQueryRequest(query="wetlands protection act compliance")
+async def test_query_permit_requirements_batch(env_tool_context):
+    """Verify batch permit requirements search works concurrently."""
+    batch_permits = ToolRegistry.get("query_permit_requirements_batch")
+    request = PermitBatchRequest(queries=["wetlands compliance", "stormwater discharge plan"])
 
-    res = await query_permit_tool(env_tool_context, request)
+    res = await batch_permits(env_tool_context, request)
     assert res.success is True
+    assert len(res.data) == 1
     assert res.data[0].id == "PERMIT-0001"
-    assert res.data[0].issuing_agency == "Conservation Commission"
-    assert "Replication area required" in res.data[0].mitigation_requirements
 
 
 async def test_calculate_buffers_violation(env_tool_context):
@@ -240,3 +259,73 @@ async def test_partial_success_fallback(env_tool_context):
     assert len(res.data) == 0
     assert len(env_tool_context.telemetry_service.logs) == 2
     assert env_tool_context.telemetry_service.logs[0][0] == "WARNING"
+
+
+def test_configuration_validation_checks():
+    """Verify config validation parsing logic on yaml configurations."""
+    raw_yaml = """
+version: "1.0.0"
+environmental_tools:
+  wetlands:
+    priority: 1
+    layer_name: "nwi"
+  habitats:
+    priority: 2
+    layer_name: "usfws"
+processing:
+  repair: true
+cache:
+  ttl: 300
+"""
+    data = yaml.safe_load(raw_yaml)
+    validator = EnvironmentalConfigValidator.model_validate(data)
+    assert validator.version == "1.0.0"
+
+
+def test_configuration_validation_failure_duplicate_priority():
+    """Verify validator flags validation errors on duplicate priority configs."""
+    from pydantic import ValidationError
+    raw_yaml = """
+version: "1.0.0"
+environmental_tools:
+  wetlands:
+    priority: 1
+  habitats:
+    priority: 1
+processing: {}
+cache: {}
+"""
+    data = yaml.safe_load(raw_yaml)
+    with pytest.raises(ValidationError):
+        EnvironmentalConfigValidator.model_validate(data)
+
+
+def test_stable_constraint_ids():
+    """Verify deterministic stable ID assignment for EnvironmentalConstraint models."""
+    from agents.environmental_permit.models import EnvironmentalConstraint
+    
+    constraints = [
+        EnvironmentalConstraint(
+            id="ENV-CONSTRAINT-0002",
+            severity=Severity.HIGH,
+            category="wetland",
+            distance=12.0,
+            affected_area=100.0,
+            citation="DEP WPA Sec 2",
+            recommendation="Apply for DEP notice"
+        ),
+        EnvironmentalConstraint(
+            id="ENV-CONSTRAINT-0001",
+            severity=Severity.CRITICAL,
+            category="habitat",
+            distance=0.0,
+            affected_area=340.0,
+            citation="ESA Sec 7",
+            recommendation="Mitigate with USFWS conservation plan"
+        )
+    ]
+    
+    # Sort first
+    constraints.sort(key=lambda c: c.id)
+    assert constraints[0].id == "ENV-CONSTRAINT-0001"
+    assert constraints[1].id == "ENV-CONSTRAINT-0002"

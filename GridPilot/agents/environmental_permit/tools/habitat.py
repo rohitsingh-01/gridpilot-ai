@@ -1,8 +1,8 @@
-"""Critical habitat query tools supporting single and batch lookups with deterministic sorting."""
+"""Critical habitat query tools supporting single and batch parallel lookups with deterministic sorting."""
 from __future__ import annotations
 
 import asyncio
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from agents.site_intelligence.interfaces import ToolContext
 from agents.site_intelligence.tools.decorators import tool_wrapper
@@ -64,25 +64,31 @@ async def query_critical_habitat_batch(
     request: HabitatBatchRequest,
     cancellation_token: Optional[asyncio.Event] = None,
 ) -> List[HabitatResult]:
-    """Batch query critical habitats intersecting multiple target Areas of Interest."""
+    """Batch query critical habitats intersecting multiple target Areas of Interest concurrently."""
     if context.environmental_service is None:
         return []
 
-    combined_results: List[HabitatResult] = []
+    if cancellation_token and cancellation_token.is_set():
+        raise asyncio.CancelledError("Batch critical habitats query aborted.")
 
-    for aoi in request.aois:
-        if cancellation_token and cancellation_token.is_set():
-            raise asyncio.CancelledError("Batch critical habitats query aborted.")
-
+    async def fetch_single(aoi: Dict[str, Any]) -> List[HabitatResult]:
         try:
-            results = await context.environmental_service.query_critical_habitats(aoi)
-            combined_results.extend(results)
+            return await context.environmental_service.query_critical_habitats(aoi)
         except Exception as exc:
             context.telemetry_service.log_structured(
                 "WARNING",
                 f"Failed to query critical habitat in batch: {str(exc)}",
                 {"trace_id": context.trace_id}
             )
+            return []
+
+    # Run batch queries concurrently using gather
+    tasks = [fetch_single(aoi) for aoi in request.aois]
+    nested_results = await asyncio.gather(*tasks)
+
+    combined_results: List[HabitatResult] = []
+    for r_list in nested_results:
+        combined_results.extend(r_list)
 
     # Remove duplicates
     unique_results = {h.id: h for h in combined_results}.values()

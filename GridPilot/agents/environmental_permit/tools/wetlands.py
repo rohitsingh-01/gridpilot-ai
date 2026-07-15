@@ -1,4 +1,4 @@
-"""Wetland query tools supporting single and batch lookups with deterministic sorting."""
+"""Wetland query tools supporting single and batch parallel lookups with deterministic sorting."""
 from __future__ import annotations
 
 import asyncio
@@ -41,7 +41,6 @@ async def query_wetlands(
 ) -> List[WetlandResult]:
     """Query wetlands intersecting the target Area of Interest."""
     if context.environmental_service is None:
-        # Fallback to empty list (partial success) with a logged warning
         context.telemetry_service.log_structured(
             "WARNING",
             "IEnvironmentalAnalysisService is unavailable. Returning empty results.",
@@ -65,27 +64,33 @@ async def query_wetlands_batch(
     request: WetlandsBatchRequest,
     cancellation_token: Optional[asyncio.Event] = None,
 ) -> List[WetlandResult]:
-    """Batch query wetlands intersecting multiple target Areas of Interest."""
+    """Batch query wetlands intersecting multiple target Areas of Interest concurrently."""
     if context.environmental_service is None:
         return []
 
-    combined_results: List[WetlandResult] = []
-    
-    # Process batch with cancellation check
-    for aoi in request.aois:
-        if cancellation_token and cancellation_token.is_set():
-            raise asyncio.CancelledError("Batch wetlands query aborted.")
-        
+    if cancellation_token and cancellation_token.is_set():
+        raise asyncio.CancelledError("Batch wetlands query aborted.")
+
+    # 1. Define coroutines for parallel execution
+    async def fetch_single(aoi: Dict[str, Any]) -> List[WetlandResult]:
         try:
-            results = await context.environmental_service.query_wetlands(aoi)
-            combined_results.extend(results)
+            return await context.environmental_service.query_wetlands(aoi)
         except Exception as exc:
             context.telemetry_service.log_structured(
                 "WARNING",
                 f"Failed to query wetland in batch: {str(exc)}",
                 {"trace_id": context.trace_id}
             )
+            return []
 
-    # Remove duplicates based on ID
+    # 2. Run concurrently using asyncio.gather()
+    tasks = [fetch_single(aoi) for aoi in request.aois]
+    nested_results = await asyncio.gather(*tasks)
+
+    # 3. Flatten and deduplicate by ID
+    combined_results: List[WetlandResult] = []
+    for r_list in nested_results:
+        combined_results.extend(r_list)
+
     unique_results = {w.id: w for w in combined_results}.values()
     return sort_wetlands(list(unique_results))
