@@ -1,0 +1,25 @@
+version: "1.0.0"
+
+environmental_tools:
+  wetlands:
+    dataset_path: "data/geo/wetlands"
+    layer_name: "nwi_wetlands"
+    priority: 1
+  habitats:
+    dataset_path: "data/geo/habitats"
+    layer_name: "critical_habitats"
+    priority: 2
+  permits:
+    collection_name: "regulatory_corpus"
+    priority: 3
+
+processing:
+  duplicate_removal: true
+  geometry_repair: true
+
+cache:
+  ttl_seconds: 86400
+
+retry_policy:
+  max_retries: 3
+  backoff_factor: 2.0

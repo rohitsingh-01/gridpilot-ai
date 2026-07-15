@@ -132,6 +132,7 @@ class ToolContext(BaseModel):
     osm_service: BaseMapProvider
     cache_service: ICacheService
     telemetry_service: ITelemetryService
+    environmental_service: Optional[Any] = None
 
     user: Optional[str] = None
     permissions: List[str] = Field(default_factory=list)
